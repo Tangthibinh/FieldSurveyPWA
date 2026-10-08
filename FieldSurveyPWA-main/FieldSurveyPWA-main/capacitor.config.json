@@ -1,0 +1,9 @@
+{
+  "appId": "vn.vku.fieldsurvey",
+  "appName": "VKU Field Survey",
+  "webDir": "dist",
+  "bundledWebRuntime": false,
+  "server": {
+    "androidScheme": "https"
+  }
+}

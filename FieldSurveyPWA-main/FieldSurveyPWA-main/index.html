@@ -1,0 +1,285 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>VKU Field Survey PWA - Khảo sát cơ sở vật chất</title>
+  
+  <!-- SEO & PWA Meta Tags -->
+  <meta name="description" content="Ứng dụng Progressive Web App (PWA) hỗ trợ người điều tra khảo sát hiện trạng cơ sở vật chất VKU, hoạt động offline-first và tự động đồng bộ Google Sheets WebApp.">
+  <meta name="theme-color" content="#1e3a8a">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <meta name="apple-mobile-web-app-title" content="VKU Survey">
+
+  <!-- Favicons & Icons -->
+  <link rel="icon" type="image/svg+xml" href="icons/favicon.svg">
+  <link rel="icon" type="image/png" sizes="192x192" href="icons/icon-192.png">
+  <link rel="shortcut icon" href="favicon.ico">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
+  <link rel="manifest" href="manifest.json">
+
+  <!-- Stylesheet -->
+  <link rel="stylesheet" href="index.css">
+</head>
+<body>
+
+  <!-- App Header -->
+  <header class="app-header">
+    <div class="brand-container">
+      <img src="icons/favicon.svg" alt="VKU Logo" class="header-icon">
+      <div class="header-title-box">
+        <span class="brand-name">VKU FIELD SURVEY</span>
+        <span class="brand-sub">ĐẠI HỌC CNTT & TT VIỆT - HÀN</span>
+      </div>
+    </div>
+
+    <div class="header-actions">
+      <span id="network_status_badge" class="status-badge online">🟢 Online</span>
+    </div>
+  </header>
+
+  <!-- PWA Install Banner -->
+  <div id="pwa_install_banner" class="pwa-banner hidden">
+    <div class="banner-content">
+      <div class="banner-icon">📲</div>
+      <div>
+        <div class="banner-title">Cài đặt ứng dụng VKU Survey</div>
+        <div class="banner-sub">Dùng mượt mà offline không cần mạng!</div>
+      </div>
+    </div>
+    <div class="banner-actions">
+      <button id="btn_install_pwa" class="btn btn-sm btn-primary">Cài đặt</button>
+      <button id="btn_close_install_banner" class="btn btn-sm btn-secondary">✕</button>
+    </div>
+  </div>
+
+  <!-- Main Content Body -->
+  <main class="app-container">
+
+    <!-- Tab 1: Form Khảo Sát (Mobile First Form from questions.md) -->
+    <section id="tab_form" class="tab-view active">
+      
+      <div class="draft-notice-bar" style="margin-bottom: 12px; font-size: 0.78rem; color: #475569; display: flex; justify-content: space-between; align-items: center;">
+        <span id="draft_status_indicator">💾 Đã sẵn sàng lưu nháp</span>
+        <button type="button" class="btn-sm btn-danger-outline" style="padding: 2px 8px;" onclick="handleClearFormDraft()">Delete Draft</button>
+      </div>
+
+      <form id="main_survey_form">
+        <!-- Dynamic HTML rendered from questions.md -->
+        <div id="survey_form_container">
+          <div class="loading-spinner">⏳ Đang tải form điều tra từ questions.md...</div>
+        </div>
+
+        <div class="form-actions-bar">
+          <button type="submit" id="btn_submit_survey" class="btn btn-primary">
+            🚀 Gửi bài điều tra ngay
+          </button>
+        </div>
+      </form>
+
+    </section>
+
+    <!-- Tab 2: Tra Cứu Thông Tin & Báo Cáo Cập Nhật (Facility & Full Survey Inspection Reports) -->
+    <section id="tab_lookup" class="tab-view">
+      <div class="card">
+        <h2 class="section-title">🔍 Tra cứu Thông tin & Báo cáo Khảo sát</h2>
+        <p class="survey-desc" style="margin-bottom: 14px;">
+          Xem toàn bộ 18+ báo cáo kiểm tra cơ sở vật chất từ file CSV & dữ liệu Google Sheets mới cập nhật (bao gồm phòng A207, C402, C505...).
+        </p>
+
+        <div class="search-box">
+          <input type="text" 
+                 id="facility_search_input" 
+                 class="form-control" 
+                 placeholder="Tìm mã phòng (vd: A207, C204, C101, sửa ngay, Khẩn cấp...)"
+                 oninput="handleFacilitySearchInput(event)">
+        </div>
+
+        <!-- Filter Category Chips -->
+        <div class="filter-chips-container">
+          <button class="filter-chip active" data-filter="all" onclick="setFacilityFilter('all', this)">🌐 Tất cả Báo cáo (18+)</button>
+          <button class="filter-chip" data-filter="urgent" onclick="setFacilityFilter('urgent', this)">🚨 Cần bảo trì / Khẩn cấp</button>
+          <button class="filter-chip" data-filter="lab" onclick="setFacilityFilter('lab', this)">💻 Phòng Máy tính / Lab</button>
+          <button class="filter-chip" data-filter="recent" onclick="setFacilityFilter('recent', this)">📅 Mới cập nhật 3/9/2026</button>
+        </div>
+      </div>
+
+      <div id="facility_lookup_container">
+        <!-- Dynamic Facility Cards & Inspection Reports -->
+      </div>
+    </section>
+
+    <!-- Tab 3: Trợ Lý Hỗ Trợ & Trả Lời Câu Hỏi (Smart QA & Knowledge Assistant) -->
+    <section id="tab_assistant" class="tab-view">
+      <div class="card">
+        <div style="display: flex; align-items: center; gap: 10px; margin-bottom: 6px;">
+          <span style="font-size: 1.8rem;">🤖</span>
+          <div>
+            <h2 class="section-title" style="margin-bottom: 0;">Trợ lý Hỗ trợ & Trả lời thông minh</h2>
+            <div class="survey-desc">Phân tích linh hoạt từ file <code>questions.md</code> và toàn bộ báo cáo khảo sát Google Sheets.</div>
+          </div>
+        </div>
+
+        <!-- Quick Question Suggestions -->
+        <div class="qa-suggestions-title">💡 Gợi ý câu hỏi phân tích & hướng dẫn:</div>
+        <div class="qa-suggestions-grid">
+          <button class="qa-chip-btn" onclick="askAssistantQuestion('Báo cáo kiểm tra phòng A207 có những gì?')">
+            🏢 Báo cáo kiểm tra phòng A207 (sửa ngay & phải sửa)?
+          </button>
+          <button class="qa-chip-btn" onclick="askAssistantQuestion('Phòng Lab nào bị hỏng nhiều máy tính nhất?')">
+            💻 Phòng Lab nào hỏng nhiều máy tính nhất?
+          </button>
+          <button class="qa-chip-btn" onclick="askAssistantQuestion('Tổng chi phí bảo trì ước tính bao nhiêu?')">
+            💵 Tổng chi phí bảo trì ước tính bao nhiêu?
+          </button>
+          <button class="qa-chip-btn" onclick="askAssistantQuestion('Danh sách các phòng bị sự cố khẩn cấp?')">
+            🚨 Danh sách phòng bị sự cố khẩn cấp?
+          </button>
+          <button class="qa-chip-btn" onclick="askAssistantQuestion('Cấu trúc các câu hỏi trong file questions.md?')">
+            📝 Cấu trúc các câu hỏi trong file questions.md?
+          </button>
+        </div>
+
+        <!-- Custom User Question Input -->
+        <div class="qa-input-group" style="margin-top: 14px;">
+          <input type="text" 
+                 id="qa_user_input" 
+                 class="form-control" 
+                 placeholder="Gõ câu hỏi bất kỳ (vd: A207 hỏng gì, chi phí C402, Q3 hỏi gì...)"
+                 onkeypress="if(event.key==='Enter') submitUserQAQuery()">
+          <button type="button" class="btn btn-primary" style="min-height: 46px; width: auto; padding: 0 16px;" onclick="submitUserQAQuery()">
+            Hỏi Trợ Lý 💬
+          </button>
+        </div>
+      </div>
+
+      <!-- Assistant Response Container -->
+      <div id="assistant_response_card" class="card assistant-response-card hidden">
+        <div class="assistant-response-header">
+          <span class="assistant-avatar">🤖</span>
+          <span class="assistant-title">Câu trả lời thông minh từ Trợ lý VKU:</span>
+        </div>
+        <div id="assistant_response_content" class="assistant-response-content">
+          <!-- Dynamic Answer Output -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 4: Hàng Chờ Đồng Bộ Offline & Lịch Sử (Queue & Sync History) -->
+    <section id="tab_queue" class="tab-view">
+      <div class="card">
+        <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 12px;">
+          <h2 class="section-title" style="margin-bottom: 0;">📤 Hàng chờ Offline</h2>
+          <button id="btn_manual_sync" class="btn btn-sm btn-primary" onclick="handleManualSync()">
+            ⚡ Đồng bộ ngay
+          </button>
+        </div>
+        <p class="survey-desc">
+          Các bài khảo sát thực hiện trong điều kiện Offline sẽ được lưu trữ an toàn tại đây và tự động gửi lên Google Sheets khi có kết nối mạng.
+        </p>
+      </div>
+
+      <div id="pending_queue_container">
+        <!-- Pending Queue Cards -->
+      </div>
+
+      <div class="card" style="margin-top: 20px;">
+        <h2 class="section-title">📜 Lịch sử khảo sát gần đây</h2>
+        <div id="survey_history_container">
+          <!-- History List -->
+        </div>
+      </div>
+    </section>
+
+    <!-- Tab 5: Cấu Hình & Hướng Dẫn (Settings & Instructions) -->
+    <section id="tab_settings" class="tab-view">
+      <div class="card">
+        <h2 class="section-title">⚙️ Cấu hình Google Sheets WebApp</h2>
+        <p class="survey-desc" style="margin-bottom: 14px;">
+          Dán URL Web App của Google Apps Script bên dưới để kết nối ứng dụng với file Google Sheet của bạn.
+        </p>
+
+        <div style="margin-bottom: 14px;">
+          <label for="gsheet_endpoint_input" style="font-weight: 700; font-size: 0.88rem; display: block; margin-bottom: 6px;">
+            Google Apps Script WebApp URL:
+          </label>
+          <input type="url" 
+                 id="gsheet_endpoint_input" 
+                 class="form-control" 
+                 placeholder="https://script.google.com/macros/s/AKfycb.../exec">
+        </div>
+
+        <button id="btn_save_gsheet_url" class="btn btn-primary" style="min-height: 42px;">
+          💾 Lưu cấu hình URL
+        </button>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">📱 Tính năng native của Android</h2>
+        <p class="survey-desc" style="margin-bottom: 12px;">
+          Camera, vị trí, lưu file và thông báo dùng Capacitor khi chạy trong APK; trình duyệt vẫn dùng fallback Web API.
+        </p>
+        <button id="btn_enable_push" class="btn btn-secondary" type="button">
+          🔔 Bật thông báo trên thiết bị
+        </button>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">📝 Tùy biến câu hỏi từ File Markdown</h2>
+        <p class="survey-desc" style="margin-bottom: 12px;">
+          Bạn có thể thay đổi danh sách câu hỏi điều tra bằng cách chỉnh sửa trực tiếp nội dung trong file <code>questions.md</code>.
+        </p>
+        <button type="button" class="btn btn-secondary" onclick="reloadQuestionsFromFile()">
+          🔄 Làm mới Form từ questions.md
+        </button>
+      </div>
+
+      <div class="card">
+        <h2 class="section-title">ℹ️ Giới thiệu Mini-Project 1</h2>
+        <div style="font-size: 0.85rem; color: var(--text-muted); line-height: 1.6;">
+          <b>Môn học:</b> Cross-Platform Mobile App Development (VKU)<br>
+          <b>Chủ đề:</b> Week 3 — Progressive Web Apps (PWA)<br>
+          <b>Công nghệ:</b> HTML5, CSS3 Mobile-First, Vite, Capacitor, Service Worker Cache API, IndexedDB API, Dynamic Markdown Parser, Google Apps Script Endpoint.
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- Bottom Navigation Bar -->
+  <nav class="bottom-nav">
+    <button class="nav-btn active" data-tab="form">
+      <span class="nav-icon">📋</span>
+      <span>Form Survey</span>
+    </button>
+
+    <button class="nav-btn" data-tab="lookup">
+      <span class="nav-icon">🔍</span>
+      <span>Tra cứu</span>
+    </button>
+
+    <button class="nav-btn" data-tab="assistant">
+      <span class="nav-icon">🤖</span>
+      <span>Trợ lý Q&A</span>
+    </button>
+
+    <button class="nav-btn" data-tab="queue">
+      <span class="nav-icon">📤</span>
+      <span>Hàng chờ</span>
+      <span id="queue_count_badge" class="badge-counter">0</span>
+    </button>
+
+    <button class="nav-btn" data-tab="settings">
+      <span class="nav-icon">⚙️</span>
+      <span>Cấu hình</span>
+    </button>
+  </nav>
+
+  <!-- Toast Notification -->
+  <div id="toast_notification" class="toast-container"></div>
+
+  <!-- App Script (ES Module) -->
+  <script type="module" src="/js/app.js"></script>
+</body>
+</html>
